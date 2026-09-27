@@ -458,6 +458,7 @@ Item {
   // themselves never list keys.
   readonly property var menuShortcuts: [
     { id: "apps", scope: "applications", title: "Apps", icon: "󰀻" },
+    { id: "clipboard", scope: "clipboard", title: "Clipboard", icon: "󰅌" },
     { id: "learn", title: "Learn", icon: "󰧑" },
     { id: "trigger", title: "Trigger", icon: "󱓞" },
     { id: "style", title: "Style", icon: "" },
@@ -479,7 +480,9 @@ Item {
     out.push({ label: root.compact ? "Settings" : "Provider settings", key: "ctrl K" })
     return out
   }
-  readonly property bool gridMode: paletteSettings.layout === "grid" && !dmenuActive
+  // Clipboard history remains a readable list even when the main palette uses
+  // the grid layout: its entries are text snippets, not launchable app tiles.
+  readonly property bool gridMode: paletteSettings.layout === "grid" && !dmenuActive && scope !== "clipboard"
   readonly property int gridColumnCount: Math.max(1, Math.floor(gridView.width / Style.space(124)))
   readonly property bool previewVisible: !gridMode && !dmenuActive && paletteSettings.showPreview !== false && !!(current.preview || current.previewImage || current.swatch)
 
