@@ -113,6 +113,7 @@ Item {
   property var config: Settings.empty()
   property string configError: ""
   readonly property var paletteSchema: [
+    { key: "layout", type: "enum", label: "Layout", "default": "list", options: ["list", "grid"], optionLabels: { list: "List", grid: "Grid" }, description: "Grid arranges palette results in tiles across screens; quick dialogs stay in a list" },
     { key: "density", type: "enum", label: "Layout density", "default": "compact", options: ["compact", "comfortable"], description: "Compact uses a narrower window and shorter rows" },
     { key: "accent", type: "enum", label: "Accent color", "default": "theme", options: ["theme", "ember", "violet", "mint"], description: "Theme follows the active Omarchy theme" },
     { key: "showPreview", type: "boolean", label: "Show result previews", "default": true },
@@ -285,8 +286,9 @@ Item {
   readonly property var voiceSchema: [
     { key: "enabled", type: "boolean", label: "Voice command integration", "default": true,
       description: "Hold the palette hotkey, or tap it again while the palette is open, to dictate the query" },
-    { key: "secondTap", type: "enum", label: "Second tap of the hotkey", "default": "voice", options: ["voice", "close"],
-      description: "Voice starts dictation and a third tap stops it (Esc closes); Close is the stock toggle" },
+    { key: "secondTap", type: "enum", label: "When toggling an open palette", "default": "voice", options: ["voice", "close"],
+      optionLabels: { voice: "Start dictation", close: "Close palette" },
+      description: "Applies to the hotkey, touchpad gestures and menu buttons: start dictation or close the palette" },
     { key: "keys", type: "string", label: "Hotkeys to hold", "default": "SUPER + SPACE",
       description: "Hyprland combos for the long-press bindings, comma-separated, e.g. SUPER + SPACE, SUPER + SHIFT + code:201" }
   ]
@@ -454,6 +456,18 @@ Item {
   // Every key that acts on the selection, for the footer: ↵ first and
   // brightest, then what the row or the screen offers beyond it. The rows
   // themselves never list keys.
+  readonly property var menuShortcuts: [
+    { id: "apps", scope: "applications", title: "Apps", icon: "󰀻" },
+    { id: "learn", title: "Learn", icon: "󰧑" },
+    { id: "trigger", title: "Trigger", icon: "󱓞" },
+    { id: "style", title: "Style", icon: "" },
+    { id: "setup", title: "Setup", icon: "" },
+    { id: "install", title: "Install", icon: "󰉉" },
+    { id: "remove", title: "Remove", icon: "󰭌" },
+    { id: "update", title: "Update", icon: "" },
+    { id: "system", title: "System", icon: "" }
+  ]
+  readonly property int menuShortcutsHeight: Style.space(58)
   readonly property var footerActions: {
     var row = root.current, can = !!row.uid && !row.disabled
     // Tab types a query row's text as ↵ does (completeCommand), so both keys sit under one name.
@@ -465,7 +479,9 @@ Item {
     out.push({ label: root.compact ? "Settings" : "Provider settings", key: "ctrl K" })
     return out
   }
-  readonly property bool previewVisible: !dmenuActive && paletteSettings.showPreview !== false && !!(current.preview || current.previewImage || current.swatch)
+  readonly property bool gridMode: paletteSettings.layout === "grid" && !dmenuActive
+  readonly property int gridColumnCount: Math.max(1, Math.floor(gridView.width / Style.space(124)))
+  readonly property bool previewVisible: !gridMode && !dmenuActive && paletteSettings.showPreview !== false && !!(current.preview || current.previewImage || current.swatch)
 
   // ---------------------------------------------------------------- motion
   // Three tiers (core/Motion.js) drive every transition: the window's
@@ -1000,6 +1016,15 @@ Item {
   // every reconcile and whenever the selection moves.
   function syncCurrent() {
     if (resultList.currentIndex !== root.selected) resultList.currentIndex = root.selected
+    if (gridView.currentIndex !== root.selected) gridView.currentIndex = root.selected
+  }
+  function positionSelection(mode) {
+    if (root.gridMode) gridView.positionViewAtIndex(root.selected, mode)
+    else resultList.positionViewAtIndex(root.selected, mode)
+  }
+  function positionBeginning() {
+    if (root.gridMode) gridView.positionViewAtBeginning()
+    else resultList.positionViewAtBeginning()
   }
 
   function afterRows() {
@@ -1010,7 +1035,7 @@ Item {
       root.selected = found >= 0 ? found : Math.max(0, Math.min(root.selected, root.rows.length - 1))
     } else {
       root.selected = 0
-      resultList.positionViewAtBeginning()
+      root.positionBeginning()
     }
     root.syncCurrent()
   }
@@ -1026,7 +1051,7 @@ Item {
     root.resetSelection()
     root.applyRows([])
     root.runQuery()
-    resultList.positionViewAtBeginning()
+    root.positionBeginning()
     root.slideLevel(1)
   }
 
@@ -1054,7 +1079,7 @@ Item {
     root.resetSelection()
     root.applyRows([])
     root.runQuery()
-    resultList.positionViewAtBeginning()
+    root.positionBeginning()
     root.slideLevel(-1)
     return true
   }
@@ -1064,7 +1089,7 @@ Item {
     root.selectionTouched = true
     pointerGate.reset()
     root.selected = (root.selected + Number(delta) + root.rows.length) % root.rows.length
-    resultList.positionViewAtIndex(root.selected, ListView.Contain)
+    root.positionSelection(GridView.Contain)
   }
 
   function selectPage(delta) {
@@ -1072,7 +1097,7 @@ Item {
     root.selectionTouched = true
     pointerGate.reset()
     root.selected = Math.max(0, Math.min(root.rows.length - 1, root.selected + Number(delta)))
-    resultList.positionViewAtIndex(root.selected, ListView.Contain)
+    root.positionSelection(ListView.Contain)
   }
 
   // Ctrl+1…Ctrl+8: select the nth visible row and run it in one stroke.
@@ -1084,8 +1109,14 @@ Item {
     root.selectionTouched = true
     pointerGate.reset()
     root.selected = index
-    resultList.positionViewAtIndex(root.selected, ListView.Contain)
+    root.positionSelection(ListView.Contain)
     root.activate()
+  }
+
+  function openMenuShortcut(shortcut) {
+    if (!shortcut) return
+    root.voiceCancel()
+    root.navigate(shortcut.scope || ("omarchy/" + shortcut.id), shortcut.title)
   }
 
   function selectFromPointer(index, item, mouse) {
@@ -1217,7 +1248,7 @@ Item {
   // ------------------------------------------------------------------ view
   readonly property int headerHeight: Style.space(compact ? 66 : 78)
   readonly property int crumbHeight: Style.space(30)
-  readonly property int footerHeight: Style.space(46)
+  readonly property int footerHeight: root.menuShortcutsHeight
   readonly property int rowHeight: Style.space(compact ? 46 : 56)
   readonly property int rowSpacing: Style.space(3)
   readonly property int dmenuRowsHeight: {
@@ -1428,6 +1459,10 @@ Item {
             else if (ctrl && event.key === Qt.Key_U) { text = ""; root.edited(); event.accepted = true }
             else if (event.key === Qt.Key_Tab && !root.dmenuActive) { root.completeCommand(); event.accepted = true }
             else if (event.key === Qt.Key_Backtab) { event.accepted = true }
+            else if (root.gridMode && event.key === Qt.Key_Right) { root.select(1); event.accepted = true }
+            else if (root.gridMode && event.key === Qt.Key_Left) { root.select(-1); event.accepted = true }
+            else if (root.gridMode && event.key === Qt.Key_Down) { root.select(gridView.columns); event.accepted = true }
+            else if (root.gridMode && event.key === Qt.Key_Up) { root.select(-gridView.columns); event.accepted = true }
             else if (event.key === Qt.Key_Down || (ctrl && event.key === Qt.Key_N)) { root.select(1); event.accepted = true }
             else if (event.key === Qt.Key_Up || (ctrl && event.key === Qt.Key_P)) { root.select(-1); event.accepted = true }
             else if (event.key === Qt.Key_PageDown) { root.selectPage(6); event.accepted = true }
@@ -1485,6 +1520,7 @@ Item {
 
         ListView {
           id: resultList
+          visible: !root.gridMode
           anchors.left: parent.left
           anchors.top: parent.top
           anchors.bottom: parent.bottom
@@ -1565,6 +1601,95 @@ Item {
             }
           }
         }
+        GridView {
+          id: gridView
+          visible: root.gridMode
+          anchors.left: parent.left
+          anchors.top: parent.top
+          anchors.bottom: parent.bottom
+          width: parent.width
+          model: resultModel
+          clip: true
+          // Pick a comfortable column count, then spread the columns across
+          // the full available width so the grid has no persistent empty strip.
+          cellWidth: width / root.gridColumnCount
+          cellHeight: Style.space(104)
+          boundsBehavior: Flickable.StopAtBounds
+          currentIndex: root.selected
+          delegate: Item {
+            id: tile
+            required property int index
+            required property string uid
+            required property string title
+            required property string subtitle
+            required property string icon
+            required property string iconFont
+            required property string iconSource
+            required property string tint
+            required property string verb
+            required property bool disabled
+            width: gridView.cellWidth
+            height: gridView.cellHeight
+            BorderSurface {
+              anchors.fill: parent
+              anchors.margins: Style.space(5)
+              radius: Style.cornerRadius
+              color: root.selected === tile.index ? root.selectedBackground : Util.alpha(root.foreground, 0.035)
+              borderSpec: root.selected === tile.index ? root.selectedBorderSpec : Border.none()
+              opacity: tile.disabled ? 0.62 : 1
+              Accessible.role: Accessible.ListItem
+              Accessible.name: tile.title + (tile.subtitle ? ". " + tile.subtitle : "")
+              Column {
+                anchors.centerIn: parent
+                width: parent.width - Style.space(12)
+                spacing: Style.space(7)
+                Item {
+                  anchors.horizontalCenter: parent.horizontalCenter
+                  width: Style.space(38); height: width
+                  Image {
+                    id: iconImage
+                    anchors.fill: parent
+                    visible: !!tile.iconSource
+                    source: tile.iconSource
+                    fillMode: Image.PreserveAspectFit
+                    sourceSize.width: width * Screen.devicePixelRatio
+                    sourceSize.height: height * Screen.devicePixelRatio
+                    asynchronous: true
+                  }
+                  Text {
+                    anchors.fill: parent
+                    visible: !tile.iconSource || iconImage.status !== Image.Ready
+                    text: tile.icon
+                    textFormat: Text.PlainText
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    color: tile.tint || root.accent
+                    font.family: tile.iconFont || Style.font.menuFamily
+                    font.pixelSize: Style.font.iconLarge + 5
+                  }
+                }
+                Text {
+                  width: parent.width
+                  text: tile.title
+                  textFormat: Text.PlainText
+                  horizontalAlignment: Text.AlignHCenter
+                  color: root.selected === tile.index ? root.selectedText : root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  font.weight: root.selected === tile.index ? Font.DemiBold : Font.Medium
+                  elide: Text.ElideRight
+                }
+              }
+              MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: tile.disabled ? Qt.ArrowCursor : Qt.PointingHandCursor
+                onPositionChanged: function(mouse) { root.selectFromPointer(tile.index, parent, mouse) }
+                onClicked: { root.selectionTouched = true; root.selected = tile.index; root.activate() }
+              }
+            }
+          }
+        }
         Rectangle { visible: root.previewVisible; x: resultList.width + Style.space(12); width: 1; height: parent.height - Style.space(12); color: root.hairline }
         PreviewPane {
           visible: root.previewVisible
@@ -1594,44 +1719,66 @@ Item {
         }
       }
 
-      // Footer (palette mode)
+      // Fixed shortcuts to the Omarchy menu's main sections.
       Rectangle { visible: !root.dmenuActive; x: 0; y: parent.height - root.footerHeight; width: parent.width; height: 1; color: root.hairline }
       Item {
         visible: !root.dmenuActive
-        x: Style.space(22); y: parent.height - root.footerHeight; width: parent.width - Style.space(44); height: root.footerHeight
+        x: Style.space(18); y: parent.height - root.footerHeight; width: parent.width - Style.space(36); height: root.menuShortcutsHeight
         Row {
-          anchors.verticalCenter: parent.verticalCenter; spacing: Style.space(8)
-          Text {
-            text: voice.phase === "listening" ? (root.voiceTrigger === "hold" ? "Listening… release to finish" : "Listening… tap the hotkey again or press ↵ to finish")
-                : voice.phase === "transcribing" ? "Finishing transcript…" : voice.phase === "starting" ? "Starting voxtype…"
-                : root.pending && root.showLoading ? "Searching…" : root.errorMessage ? "Needs attention: " + root.errorMessage : root.statusMessage || (root.current.providerName ? root.current.providerName : "Keystroke")
-            textFormat: Text.PlainText; elide: Text.ElideRight; width: Math.min(implicitWidth, card.width * 0.5)
-            color: root.errorMessage ? Color.urgent : root.muted; font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall
-            anchors.verticalCenter: parent.verticalCenter
-          }
-        }
-        Row {
-          anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: Style.space(16)
+          id: menuShortcutRow
+          anchors.fill: parent
+          spacing: 0
           Repeater {
-            model: root.footerActions
-            delegate: Row {
-              id: footerAction
+            model: root.menuShortcuts
+            delegate: Item {
+              id: menuShortcut
               required property var modelData
-              anchors.verticalCenter: parent.verticalCenter; spacing: Style.space(8)
-              Text {
-                text: modelData.label; textFormat: Text.PlainText
-                color: modelData.bright ? Util.alpha(root.foreground, 0.8) : root.muted
-                font.family: root.fontFamily; font.pixelSize: Style.font.bodySmall; anchors.verticalCenter: parent.verticalCenter
-              }
-              Repeater {
-                model: modelData.keys || [modelData.key]
-                delegate: Keycap { required property string modelData; label: modelData; bright: !!footerAction.modelData.bright; foreground: root.foreground }
+              property bool hovered: false
+              width: menuShortcutRow.width / root.menuShortcuts.length
+              height: menuShortcutRow.height
+              Accessible.role: Accessible.Button
+              Accessible.name: modelData.title
+              Rectangle {
+                anchors.fill: parent
+                anchors.margins: Style.space(2)
+                radius: Style.cornerRadius
+                color: menuShortcut.hovered ? root.selectedBackground : "transparent"
+                border.width: menuShortcut.hovered ? 1 : 0
+                border.color: menuShortcut.hovered ? root.accent : "transparent"
+                Column {
+                  anchors.centerIn: parent
+                  spacing: Style.space(2)
+                  Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: menuShortcut.modelData.icon
+                    textFormat: Text.PlainText
+                    color: menuShortcut.hovered ? root.selectedText : root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.icon + 2
+                  }
+                  Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: menuShortcut.modelData.title
+                    textFormat: Text.PlainText
+                    color: menuShortcut.hovered ? root.selectedText : root.muted
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.caption + 1
+                    elide: Text.ElideRight
+                  }
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onEntered: menuShortcut.hovered = true
+                  onExited: menuShortcut.hovered = false
+                  onClicked: root.openMenuShortcut(menuShortcut.modelData)
+                }
               }
             }
           }
         }
       }
-
       ConfirmSheet {
         id: confirmDialog
         anchors.fill: parent

@@ -21,7 +21,9 @@ Item {
     description: "Providers, appearance and the config file",
     settings: [],
     query: function(ctx) { return root.query(ctx) },
-    catalog: function(ctx) { return SettingsTree.catalog(root.current(), ctx.scope) },
+    catalog: function(ctx) {
+      return ctx.scope === "settings/applications" ? root.applicationRows({ query: "" }) : SettingsTree.catalog(root.current(), ctx.scope)
+    },
   })
 
   function model() {
@@ -63,9 +65,27 @@ Item {
     return rows
   }
 
+  function applicationRows(ctx) {
+    var h = root.host, library = h && h.appLibrary
+    if (!library) return []
+    var all = library.sortedEntries(""), rows = [], query = String(ctx.query || "").trim().toLowerCase()
+    var saved = h.config && h.config.providers && h.config.providers.applications ? h.config.providers.applications : ({})
+    for (var i = 0; i < all.length; i++) {
+      var entry = all[i].entry, id = String(entry.id), name = library.entryName(entry)
+      if (query && name.toLowerCase().indexOf(query) < 0 && id.toLowerCase().indexOf(query) < 0) continue
+      var key = "hide-" + id, hidden = saved[key] === true
+      rows.push({ id: key, title: name, subtitle: hidden ? "Hidden from Applications · select to show" : "Visible in Applications · select to hide",
+        icon: hidden ? "✓" : "󰀻", iconSource: hidden ? "" : library.iconSource(entry.icon), tint: hidden ? "#8bceb4" : "", section: "Applications",
+        verb: hidden ? "Show" : "Hide", tier: "item", score: 1, order: i,
+        accessory: hidden ? "Hidden" : "Visible", action: { type: "setting", path: ["providers", "applications"], key: key, value: !hidden, schema: { key: key, type: "boolean" } } })
+    }
+    return rows
+  }
+
   function query(ctx) {
     if (ctx.scope && ctx.scope.split("/")[0] !== "settings") return []
     if (!root.host) return []
+    if (ctx.scope === "settings/applications") return root.applicationRows(ctx)
     var t = root.current()
     var screen = ctx.scope ? t.screens[ctx.scope] : null
     if (screen) return root.valueRows(ctx, screen)

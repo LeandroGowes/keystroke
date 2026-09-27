@@ -47,6 +47,12 @@ Item {
     return hit
   }
 
+  function hiddenByKeystroke(id) {
+    var cfg = root.host && root.host.config
+    var apps = cfg && cfg.providers ? cfg.providers.applications : null
+    return !!(apps && apps["hide-" + String(id)] === true)
+  }
+
   function rowFor(entry, score, order) {
     var name = root.library.entryName(entry)
     var subtitle = root.library.entrySubtext(entry) || String(entry.comment || "") || "Application"
@@ -67,6 +73,7 @@ Item {
     var all = root.library.sortedEntries(""), rows = []
     for (var i = 0; i < all.length; i++) {
       var entry = all[i].entry
+      if (root.hiddenByKeystroke(entry.id)) continue
       if (!ctx.query) { rows.push(root.rowFor(entry, 1, i)); continue }
       var s = Match.match(ctx.query, root.library.entryName(entry), "", "", root.searchText(entry))
       // At the root a confident app match outranks Omarchy entries with the same name.

@@ -109,9 +109,12 @@ function build(model) {
   nodes.push(node("", rootParts, { id: "settings", subtitle: "Providers, appearance and the config file", order: 7, listScore: 20,
     description: "preferences configuration providers", action: navigate("settings", "Settings") }))
   var appearance = rootParts.concat(["Appearance"])
-  nodes.push(node("settings", appearance, { id: "palette", subtitle: "Density, accent, previews and animations", icon: "󰏘", section: "Keystroke", order: 0, lift: 1,
-    description: "layout density accent preview theme animations motion transitions", action: navigate("settings/palette", "Appearance") }))
+  nodes.push(node("settings", appearance, { id: "palette", subtitle: "List or grid, density, accent and animations", icon: "󰏘", section: "Keystroke", order: 0, lift: 1,
+    description: "layout list grid density accent preview theme animations motion transitions", action: navigate("settings/palette", "Appearance") }))
   schemaNodes(nodes, screens, ["palette"], model.paletteSchema || [], model.paletteValues || {}, "settings/palette", appearance, "palette")
+  nodes.push(node("settings", rootParts.concat(["Hidden Applications"]), { id: "hidden-applications", icon: "󰀻", section: "Keystroke", order: 1,
+    subtitle: "Choose which apps appear in the Applications list", keywords: "apps applications hide hidden launcher",
+    action: navigate("settings/applications", "Hidden Applications") }))
   voiceNodes(nodes, screens, rootParts, model.voice)
   if (model.matching) {
     var matching = rootParts.concat(["Matching"])
