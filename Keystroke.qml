@@ -1,6 +1,5 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Dialogs
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -271,21 +270,20 @@ Item {
     onFileChanged: reload()
   }
 
-  FileDialog {
-    id: appIconDialog
-    parentWindow: panel.contentItem.window
-    modality: Qt.ApplicationModal
-    title: root.pendingAppIconName ? "Choose an icon for " + root.pendingAppIconName : "Choose an application icon"
-    fileMode: FileDialog.OpenFile
-    options: FileDialog.DontUseNativeDialog
-    nameFilters: ["Image files (*.png *.jpg *.jpeg *.svg *.webp *.xpm)"]
-    onAccepted: {
+  Process {
+    id: appIconChooser
+    property string selectedPath: ""
+    stdout: StdioCollector {
+      onStreamFinished: appIconChooser.selectedPath = text.trim()
+    }
+    onExited: function(code) {
       var appId = root.pendingAppIconId
       var appName = root.pendingAppIconName
-      var selected = String(selectedFile || "")
+      var selected = appIconChooser.selectedPath
       root.pendingAppIconId = ""
       root.pendingAppIconName = ""
-      if (!appId || !selected) return
+      appIconChooser.selectedPath = ""
+      if (code !== 0 || !appId || !selected) return
       try {
         var key = "icon-" + appId
         var schema = { key: key, type: "string" }
@@ -293,10 +291,6 @@ Item {
         root.statusMessage = "Icon saved for " + appName
         root.requery()
       } catch (e) { root.errorMessage = String(e.message || e) }
-    }
-    onRejected: {
-      root.pendingAppIconId = ""
-      root.pendingAppIconName = ""
     }
   }
 
@@ -1223,10 +1217,11 @@ Item {
       root.pendingAppIconId = String(effect.id || "")
       root.pendingAppIconName = String(effect.name || row.title || "")
       root.statusMessage = "Choose an image for " + root.pendingAppIconName
-      // FileDialog is a QQuickAbstractDialog; changing its visible property
-      // does not reliably create/show the platform dialog in Quickshell.
-      // Explicitly open it after the panel has finished handling the action.
-      Qt.callLater(function() { appIconDialog.open() })
+      appIconChooser.selectedPath = ""
+      appIconChooser.command = ["zenity", "--file-selection", "--modal",
+        "--title=Choose an icon for " + root.pendingAppIconName,
+        "--file-filter=Image files | *.png *.jpg *.jpeg *.svg *.webp *.xpm"]
+      appIconChooser.running = true
       return
     }
     if (type === "setting") {
@@ -1283,7 +1278,7 @@ Item {
       titles: root.rows.map(function(r) { return r.title }), selected: root.selected, pending: root.pending, patterns: root.lastPatterns,
       current: { uid: root.current.uid || "", icon: root.current.icon || "", iconSource: root.current.iconSource || "", badge: root.current.badge || "", tier: root.current.tier || "" },
       currentActionType: root.current.action ? String(root.current.action.type || "") : "",
-      iconPicker: { visible: appIconDialog.visible, pendingAppId: root.pendingAppIconId },
+      iconPicker: { visible: appIconChooser.running, pendingAppId: root.pendingAppIconId },
       modelCount: resultModel.count, providers: providerRegistry.entries.map(function(e) { return e.key }), problems: providerRegistry.problems, bar: root.barList,
       applications: { library: !!root.appLibrary, entries: appEntries.length },
       matching: { mode: root.matchingSettings.mode, model: root.matchingSettings.model, loaded: matchingSession.loaded, status: matchingSession.status, error: matchingSession.error },
