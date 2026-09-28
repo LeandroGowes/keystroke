@@ -273,6 +273,7 @@ Item {
 
   FileDialog {
     id: appIconDialog
+    visible: root.pendingAppIconId.length > 0
     parentWindow: panel
     modality: Qt.ApplicationModal
     title: root.pendingAppIconName ? "Choose an icon for " + root.pendingAppIconName : "Choose an application icon"
@@ -1223,7 +1224,6 @@ Item {
       root.pendingAppIconId = String(effect.id || "")
       root.pendingAppIconName = String(effect.name || row.title || "")
       root.statusMessage = "Choose an image for " + root.pendingAppIconName
-      appIconDialog.open()
       return
     }
     if (type === "setting") {
