@@ -273,6 +273,8 @@ Item {
 
   FileDialog {
     id: appIconDialog
+    parentWindow: panel
+    modality: Qt.ApplicationModal
     title: root.pendingAppIconName ? "Choose an icon for " + root.pendingAppIconName : "Choose an application icon"
     fileMode: FileDialog.OpenFile
     options: FileDialog.DontUseNativeDialog
