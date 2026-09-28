@@ -273,7 +273,6 @@ Item {
 
   FileDialog {
     id: appIconDialog
-    visible: root.pendingAppIconId.length > 0
     parentWindow: panel.contentItem.window
     modality: Qt.ApplicationModal
     title: root.pendingAppIconName ? "Choose an icon for " + root.pendingAppIconName : "Choose an application icon"
@@ -1224,6 +1223,10 @@ Item {
       root.pendingAppIconId = String(effect.id || "")
       root.pendingAppIconName = String(effect.name || row.title || "")
       root.statusMessage = "Choose an image for " + root.pendingAppIconName
+      // FileDialog is a QQuickAbstractDialog; changing its visible property
+      // does not reliably create/show the platform dialog in Quickshell.
+      // Explicitly open it after the panel has finished handling the action.
+      Qt.callLater(function() { appIconDialog.open() })
       return
     }
     if (type === "setting") {
