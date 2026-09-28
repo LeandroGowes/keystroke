@@ -115,6 +115,9 @@ function build(model) {
   nodes.push(node("settings", rootParts.concat(["Hidden Applications"]), { id: "hidden-applications", icon: "󰀻", section: "Keystroke", order: 1,
     subtitle: "Choose which apps appear in the Applications list", keywords: "apps applications hide hidden launcher",
     action: navigate("settings/applications", "Hidden Applications") }))
+  nodes.push(node("settings", rootParts.concat(["Application Icons"]), { id: "application-icons", icon: "󰀻", section: "Keystroke", order: 2,
+    subtitle: "Choose a custom image for any installed application", keywords: "apps applications icons images customize",
+    action: navigate("settings/app-icons", "Application Icons") }))
   voiceNodes(nodes, screens, rootParts, model.voice)
   if (model.matching) {
     var matching = rootParts.concat(["Matching"])

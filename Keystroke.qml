@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Dialogs
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
@@ -36,6 +37,8 @@ Item {
   readonly property string home: Quickshell.env("HOME")
   readonly property string configPath: home + "/.config/omarchy/keystroke.json"
   readonly property string usagePath: home + "/.local/state/keystroke/usage.json"
+  property string pendingAppIconId: ""
+  property string pendingAppIconName: ""
 
   // ------------------------------------------------------------ lifecycle
   function open(payloadJson) {
@@ -266,6 +269,29 @@ Item {
     onLoaded: root.applyConfigText(text())
     onLoadFailed: root.applyConfigText("")
     onFileChanged: reload()
+  }
+
+  FileDialog {
+    id: appIconDialog
+    title: root.pendingAppIconName ? "Choose an icon for " + root.pendingAppIconName : "Choose an application icon"
+    fileMode: FileDialog.OpenFile
+    nameFilters: ["Image files (*.png *.jpg *.jpeg *.svg *.webp *.xpm)"]
+    onAccepted: {
+      if (!root.pendingAppIconId || !selectedFile) return
+      try {
+        var key = "icon-" + root.pendingAppIconId
+        var schema = { key: key, type: "string" }
+        root.saveConfig(Settings.withValue(root.config, ["providers", "applications"], key, selectedFile.toString(), schema))
+        root.statusMessage = "Application icon saved"
+        root.requery()
+      } catch (e) { root.errorMessage = String(e.message || e) }
+      root.pendingAppIconId = ""
+      root.pendingAppIconName = ""
+    }
+    onRejected: {
+      root.pendingAppIconId = ""
+      root.pendingAppIconName = ""
+    }
   }
 
   // ----------------------------------------------------------------- voice
@@ -1187,6 +1213,12 @@ Item {
     if (type === "dictation-copy") { clipboardTransfer.submit(effect.text, effect.paste); return }
     if (type === "query") { root.typeQuery(effect.text); return }
     if (type === "navigate") { root.navigate(effect.scope, effect.title || row.title); return }
+    if (type === "app-icon-select") {
+      root.pendingAppIconId = String(effect.id || "")
+      root.pendingAppIconName = String(effect.name || row.title || "")
+      appIconDialog.open()
+      return
+    }
     if (type === "setting") {
       try {
         root.saveConfig(Settings.withValue(root.config, effect.path, effect.key, effect.value, effect.schema))

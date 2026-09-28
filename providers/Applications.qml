@@ -53,11 +53,18 @@ Item {
     return !!(apps && apps["hide-" + String(id)] === true)
   }
 
+  function customIconSource(id) {
+    var cfg = root.host && root.host.config
+    var apps = cfg && cfg.providers ? cfg.providers.applications : null
+    var icon = apps && apps["icon-" + String(id)]
+    return typeof icon === "string" ? icon : ""
+  }
+
   function rowFor(entry, score, order) {
     var name = root.library.entryName(entry)
     var subtitle = root.library.entrySubtext(entry) || String(entry.comment || "") || "Application"
     return {
-      id: String(entry.id), title: name, subtitle: subtitle, icon: "󰀻", iconSource: root.library.iconSource(entry.icon),
+      id: String(entry.id), title: name, subtitle: subtitle, icon: "󰀻", iconSource: root.customIconSource(entry.id) || root.library.iconSource(entry.icon),
       section: "Applications", verb: "Launch", tier: "item", score: score, order: order, remember: true,
       appId: String(entry.id), action: { type: "app", id: String(entry.id), name: name },
       description: root.searchText(entry), descriptionKey: name

@@ -22,7 +22,9 @@ Item {
     settings: [],
     query: function(ctx) { return root.query(ctx) },
     catalog: function(ctx) {
-      return ctx.scope === "settings/applications" ? root.applicationRows({ query: "" }) : SettingsTree.catalog(root.current(), ctx.scope)
+      if (ctx.scope === "settings/applications") return root.applicationRows({ query: "" })
+      if (ctx.scope === "settings/app-icons") return root.applicationIconRows({ query: "" })
+      return SettingsTree.catalog(root.current(), ctx.scope)
     },
   })
 
@@ -82,10 +84,33 @@ Item {
     return rows
   }
 
+  function applicationIconRows(ctx) {
+    var h = root.host, library = h && h.appLibrary
+    if (!library) return []
+    var all = library.sortedEntries(""), rows = [], query = String(ctx.query || "").trim().toLowerCase()
+    var saved = h.config && h.config.providers && h.config.providers.applications ? h.config.providers.applications : ({})
+    for (var i = 0; i < all.length; i++) {
+      var entry = all[i].entry, id = String(entry.id), name = library.entryName(entry)
+      if (query && name.toLowerCase().indexOf(query) < 0 && id.toLowerCase().indexOf(query) < 0) continue
+      var key = "icon-" + id, customIcon = typeof saved[key] === "string" ? saved[key] : ""
+      rows.push({
+        id: key, title: name,
+        subtitle: customIcon ? "Custom icon · Ctrl+Enter to reset" : "Using the system icon",
+        icon: "󰀻", iconSource: customIcon || library.iconSource(entry.icon), section: "Application Icons",
+        verb: "Choose", tier: "item", score: 1, order: i, accessory: customIcon ? "Custom" : "Default",
+        action: { type: "app-icon-select", id: id, name: name },
+        altVerb: customIcon ? "Reset" : "",
+        altAction: customIcon ? { type: "setting", path: ["providers", "applications"], key: key, value: "", schema: { key: key, type: "string" } } : undefined
+      })
+    }
+    return rows
+  }
+
   function query(ctx) {
     if (ctx.scope && ctx.scope.split("/")[0] !== "settings") return []
     if (!root.host) return []
     if (ctx.scope === "settings/applications") return root.applicationRows(ctx)
+    if (ctx.scope === "settings/app-icons") return root.applicationIconRows(ctx)
     var t = root.current()
     var screen = ctx.scope ? t.screens[ctx.scope] : null
     if (screen) return root.valueRows(ctx, screen)
