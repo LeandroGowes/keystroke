@@ -1221,7 +1221,9 @@ Item {
       appIconChooser.command = ["zenity", "--file-selection", "--modal",
         "--title=Choose an icon for " + root.pendingAppIconName,
         "--file-filter=Image files | *.png *.jpg *.jpeg *.svg *.webp *.xpm"]
-      appIconChooser.running = true
+      // Hide the launcher first so it cannot cover the external file chooser.
+      root.cancel()
+      Qt.callLater(function() { appIconChooser.running = true })
       return
     }
     if (type === "setting") {
