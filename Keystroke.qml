@@ -1222,6 +1222,7 @@ Item {
     if (type === "app-icon-select") {
       root.pendingAppIconId = String(effect.id || "")
       root.pendingAppIconName = String(effect.name || row.title || "")
+      root.statusMessage = "Choose an image for " + root.pendingAppIconName
       appIconDialog.open()
       return
     }
@@ -1278,6 +1279,8 @@ Item {
       command: root.activeCommand ? { key: root.activeCommand.key, prefix: root.activeCommand.prefix, rest: root.activeCommand.rest } : null, hint: root.commandHint, ghost: root.commandGhost,
       titles: root.rows.map(function(r) { return r.title }), selected: root.selected, pending: root.pending, patterns: root.lastPatterns,
       current: { uid: root.current.uid || "", icon: root.current.icon || "", iconSource: root.current.iconSource || "", badge: root.current.badge || "", tier: root.current.tier || "" },
+      currentActionType: root.current.action ? String(root.current.action.type || "") : "",
+      iconPicker: { visible: appIconDialog.visible, pendingAppId: root.pendingAppIconId },
       modelCount: resultModel.count, providers: providerRegistry.entries.map(function(e) { return e.key }), problems: providerRegistry.problems, bar: root.barList,
       applications: { library: !!root.appLibrary, entries: appEntries.length },
       matching: { mode: root.matchingSettings.mode, model: root.matchingSettings.model, loaded: matchingSession.loaded, status: matchingSession.status, error: matchingSession.error },
