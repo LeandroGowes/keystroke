@@ -275,18 +275,22 @@ Item {
     id: appIconDialog
     title: root.pendingAppIconName ? "Choose an icon for " + root.pendingAppIconName : "Choose an application icon"
     fileMode: FileDialog.OpenFile
+    options: FileDialog.DontUseNativeDialog
     nameFilters: ["Image files (*.png *.jpg *.jpeg *.svg *.webp *.xpm)"]
     onAccepted: {
-      if (!root.pendingAppIconId || !selectedFile) return
-      try {
-        var key = "icon-" + root.pendingAppIconId
-        var schema = { key: key, type: "string" }
-        root.saveConfig(Settings.withValue(root.config, ["providers", "applications"], key, selectedFile.toString(), schema))
-        root.statusMessage = "Application icon saved"
-        root.requery()
-      } catch (e) { root.errorMessage = String(e.message || e) }
+      var appId = root.pendingAppIconId
+      var appName = root.pendingAppIconName
+      var selected = String(selectedFile || "")
       root.pendingAppIconId = ""
       root.pendingAppIconName = ""
+      if (!appId || !selected) return
+      try {
+        var key = "icon-" + appId
+        var schema = { key: key, type: "string" }
+        root.saveConfig(Settings.withValue(root.config, ["providers", "applications"], key, selected, schema))
+        root.statusMessage = "Icon saved for " + appName
+        root.requery()
+      } catch (e) { root.errorMessage = String(e.message || e) }
     }
     onRejected: {
       root.pendingAppIconId = ""
